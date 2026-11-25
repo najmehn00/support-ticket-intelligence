@@ -1,0 +1,263 @@
+{
+  "name": "Support Ticket Auto Routing",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtMinute": 5
+            },
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "c9736966-3c62-4f51-99af-2c1575178624",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    t.id,\n    t.ticket_id,\n    t.category,\n    t.text,\n    t.confidence,\n    t.reason\nFROM tickets t\nWHERE t.status = 'pending'\n  AND NOT EXISTS (\n      SELECT 1\n      FROM routing_logs rl\n      WHERE rl.ticket_id = t.id\n  )\nORDER BY t.created_at ASC\nLIMIT 100;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        224,
+        0
+      ],
+      "id": "06918052-93e6-47ce-bee0-f98bf5c6f11c",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "p4qxg0GZu4qI80QL",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "=billing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "6caefa98-0b37-4391-9771-35846d19c9af"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "id": "82f6fc46-5345-4e44-9e7e-4d2a68774ee1",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "technical",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "id": "edff9867-8b54-464c-9bf9-8e6ff07cb565",
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "manual_review",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.5,
+      "position": [
+        448,
+        0
+      ],
+      "id": "dd6e7a14-ca52-4f44-9940-1cb6cc7a75a9",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT route_ticket(\n    $1::UUID,\n    'finance'\n) AS routed;",
+        "options": {
+          "queryReplacement": "={{ $json.id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        672,
+        -112
+      ],
+      "id": "466e5039-51eb-4ec7-b934-28bfb36c37d0",
+      "name": "Execute a SQL query1",
+      "credentials": {
+        "postgres": {
+          "id": "p4qxg0GZu4qI80QL",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT route_ticket(\n    $1::UUID,\n    'technical'\n) AS routed;",
+        "options": {
+          "queryReplacement": "={{ $json.id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        672,
+        0
+      ],
+      "id": "53172e34-ec4a-4236-b197-cc2496644b55",
+      "name": "Execute a SQL query2",
+      "credentials": {
+        "postgres": {
+          "id": "p4qxg0GZu4qI80QL",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT route_ticket(\n    $1::UUID,\n    'manual_review'\n) AS routed;",
+        "options": {
+          "queryReplacement": "={{ $json.id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        608,
+        128
+      ],
+      "id": "a379813d-8dcc-414a-bebf-3db66f11b200",
+      "name": "Execute a SQL query3",
+      "credentials": {
+        "postgres": {
+          "id": "p4qxg0GZu4qI80QL",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute a SQL query2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute a SQL query3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "13392bca-da18-4b0b-bf21-b0cbbc97e1a5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a88fb34febaa3f4bfadb54cf870286ef08d3028f34b1d1f142360e588f2917ec"
+  },
+  "nodeGroups": [],
+  "id": "J6xIOOHTdLuZzjKC",
+  "tags": []
+}
